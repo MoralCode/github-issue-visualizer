@@ -63,10 +63,14 @@ export class InteractiveGenerator {
           color: '#fff',
           'text-valign': 'center',
           'text-halign': 'center',
-          'font-size': '12px',
+          'font-size': '13px',
           width: 'label',
           height: 'label',
-          padding: '10px',
+          padding: '15px',
+          'min-width': '140px',
+          'min-height': '50px',
+          'text-wrap': 'wrap',
+          'text-max-width': '130px',
           shape: 'roundrectangle',
           'border-width': 2,
           'border-color': '#333',
@@ -289,14 +293,48 @@ export class InteractiveGenerator {
       container: document.getElementById('cy'),
       elements: ${elementsJson},
       style: ${styleJson},
-      layout: {
-        name: 'breadthfirst',
-        directed: true,
-        padding: 50,
-        spacingFactor: 1.5
-      },
+      layout: { name: 'preset' },
       wheelSensitivity: 0.2
     });
+
+    // Two-pass layout: hierarchical for connected nodes, grid for isolated ones
+    (function layoutGraph() {
+      const isolated = cy.nodes().filter(function(n) {
+        return n.connectedEdges().length === 0;
+      });
+      const connected = cy.elements().not(isolated);
+
+      if (connected.nodes().length > 0) {
+        connected.layout({
+          name: 'breadthfirst',
+          directed: true,
+          padding: 60,
+          spacingFactor: 2.0,
+          avoidOverlap: true,
+        }).run();
+      }
+
+      // Place isolated nodes in a grid to the right of the main graph
+      cy.ready(function() {
+        var bbox = connected.nodes().length > 0
+          ? connected.nodes().boundingBox()
+          : { x1: 0, y1: 0, x2: 0, y2: 0 };
+        var startX = bbox.x2 + 160;
+        var startY = bbox.y1;
+        var cols = 3;
+        var cellW = 220;
+        var cellH = 90;
+
+        isolated.forEach(function(node, i) {
+          node.position({
+            x: startX + (i % cols) * cellW,
+            y: startY + Math.floor(i / cols) * cellH,
+          });
+        });
+
+        cy.fit(null, 60);
+      });
+    })();
 
     cy.on('tap', 'node', function(evt) {
       const node = evt.target;
