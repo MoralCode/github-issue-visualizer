@@ -124,7 +124,7 @@ The analyzer detects circular dependencies using depth-first search:
 
 ### `visualize` Command
 
-Generate a visual dependency graph.
+Generate a visual dependency graph. Also saves a `*-graph.json` cache file alongside the output for use with the `render` command.
 
 ```bash
 github-issue-deps visualize <repository> [options]
@@ -177,6 +177,36 @@ github-issue-deps visualize owner/repo \
   --recursive \
   --label "epic"
 ```
+
+### `render` Command
+
+Re-render a visualization from a previously cached graph file — **no API calls or token required**.
+
+When you run `visualize` with `--output`, a `*-graph.json` cache file is automatically saved alongside the output. Use `render` to regenerate the visualization from that cache (e.g. to switch formats or after tweaking the tool).
+
+```bash
+github-issue-deps render <graph-json> [options]
+```
+
+**Options:**
+
+- `-f, --format <format>`: Output format: `mermaid` or `interactive` (default: interactive)
+- `-o, --output <path>`: Save to file (defaults to same directory as the JSON, auto-named)
+
+**Examples:**
+
+```bash
+# Re-render as interactive HTML (default)
+github-issue-deps render ./graph-graph.json
+
+# Re-render in a different format
+github-issue-deps render ./graph-graph.json --format mermaid --output ./graph.md
+
+# Specify a custom output path
+github-issue-deps render ./graph-graph.json --format interactive --output ./graph-v2.html
+```
+
+> **Tip:** The cache file is named `<output-basename>-graph.json`. For example, `--output graph.html` produces `graph-graph.json`.
 
 ## Library API
 

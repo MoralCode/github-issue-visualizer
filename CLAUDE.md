@@ -43,11 +43,15 @@ npm run format         # Prettier formatting
 # Test locally (after npm run build)
 node dist/cli/index.js visualize owner/repo --token $GITHUB_TOKEN
 
-# Interactive visualization
+# Interactive visualization (also saves graph-graph.json cache)
 node dist/cli/index.js visualize owner/repo -f interactive -o graph.html
 
 # Recursive dependency fetching (fetch all transitive dependencies)
 node dist/cli/index.js visualize owner/repo --recursive --token $GITHUB_TOKEN
+
+# Re-render from cache without re-fetching (no token needed)
+node dist/cli/index.js render graph-graph.json -f interactive -o graph.html
+node dist/cli/index.js render graph-graph.json -f mermaid -o graph.md
 
 # Analysis only
 node dist/cli/index.js analyze owner/repo --show-critical-path
