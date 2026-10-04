@@ -297,43 +297,113 @@ export class InteractiveGenerator {
       wheelSensitivity: 0.2
     });
 
-    // Two-pass layout: hierarchical for connected nodes, grid for isolated ones
+    // Smart layout: degree-tiered for main graph, pairs + singles off to the side
     (function layoutGraph() {
-      const isolated = cy.nodes().filter(function(n) {
-        return n.connectedEdges().length === 0;
-      });
-      const connected = cy.elements().not(isolated);
 
-      if (connected.nodes().length > 0) {
-        connected.layout({
-          name: 'breadthfirst',
-          directed: true,
-          padding: 60,
-          spacingFactor: 2.0,
-          avoidOverlap: true,
-        }).run();
+      // --- 1. Find connected components (undirected) ---
+      function getComponents() {
+        var visited = new Set();
+        var components = [];
+        cy.nodes().forEach(function(node) {
+          if (visited.has(node.id())) return;
+          var comp = [];
+          var queue = [node];
+          while (queue.length > 0) {
+            var n = queue.shift();
+            if (visited.has(n.id())) return;
+            visited.add(n.id());
+            comp.push(n);
+            n.neighborhood('node').forEach(function(nb) {
+              if (!visited.has(nb.id())) queue.push(nb);
+            });
+          }
+          components.push(comp);
+        });
+        return components;
       }
 
-      // Place isolated nodes in a grid to the right of the main graph
-      cy.ready(function() {
-        var bbox = connected.nodes().length > 0
-          ? connected.nodes().boundingBox()
-          : { x1: 0, y1: 0, x2: 0, y2: 0 };
-        var startX = bbox.x2 + 160;
-        var startY = bbox.y1;
-        var cols = 3;
-        var cellW = 220;
-        var cellH = 90;
+      var components = getComponents();
+      // Classify by component size
+      var mainComps  = components.filter(function(c) { return c.length > 2; });
+      var pairs      = components.filter(function(c) { return c.length === 2; });
+      var singles    = components.filter(function(c) { return c.length === 1; });
 
-        isolated.forEach(function(node, i) {
-          node.position({
-            x: startX + (i % cols) * cellW,
-            y: startY + Math.floor(i / cols) * cellH,
-          });
+      // --- 2. Layout main-graph nodes: tier rows by degree (high → top) ---
+      var NODE_W = 240;
+      var NODE_H = 70;
+      var TIER_GAP = 50;   // vertical gap between tiers
+      var COMP_GAP = 120;  // vertical gap between separate main components
+
+      var mainBottomY = 60;
+
+      mainComps.forEach(function(comp) {
+        // Build degree-bucket tiers
+        var tierMap = {};
+        comp.forEach(function(n) {
+          var d = n.degree();
+          if (!tierMap[d]) tierMap[d] = [];
+          tierMap[d].push(n);
+        });
+        // Sort tiers: highest degree first (top of screen)
+        var tiers = Object.keys(tierMap)
+          .map(Number)
+          .sort(function(a, b) { return b - a; })
+          .map(function(d) { return tierMap[d]; });
+
+        var maxTierWidth = 0;
+        tiers.forEach(function(t) {
+          maxTierWidth = Math.max(maxTierWidth, t.length * NODE_W);
         });
 
-        cy.fit(null, 60);
+        var y = mainBottomY;
+        tiers.forEach(function(tier) {
+          var totalW = tier.length * NODE_W;
+          var startX = -totalW / 2 + NODE_W / 2;
+          tier.forEach(function(n, i) {
+            n.position({ x: startX + i * NODE_W, y: y });
+          });
+          y += NODE_H + TIER_GAP;
+        });
+
+        mainBottomY = y + COMP_GAP;
       });
+
+      // Determine right-hand side x start from the widest main component
+      var mainMaxX = 0;
+      if (mainComps.length > 0) {
+        mainComps.forEach(function(comp) {
+          comp.forEach(function(n) {
+            mainMaxX = Math.max(mainMaxX, n.position('x') + NODE_W / 2);
+          });
+        });
+      }
+      var sideX = mainMaxX + 180;
+      var sideY = 60;
+
+      // --- 3. Layout pairs: two nodes side-by-side, stacked vertically ---
+      var PAIR_W = 240;
+      var PAIR_GAP = 30;
+
+      pairs.forEach(function(pair) {
+        pair[0].position({ x: sideX,           y: sideY });
+        pair[1].position({ x: sideX + PAIR_W,  y: sideY });
+        sideY += NODE_H + PAIR_GAP;
+      });
+
+      // --- 4. Layout singles: 3-column grid below the pairs ---
+      var singlesStartY = sideY + (pairs.length > 0 ? 40 : 0);
+      var COLS = 3;
+      var CELL_W = 220;
+      var CELL_H = 90;
+
+      singles.forEach(function(single, i) {
+        single[0].position({
+          x: sideX + (i % COLS) * CELL_W,
+          y: singlesStartY + Math.floor(i / COLS) * CELL_H,
+        });
+      });
+
+      cy.fit(null, 60);
     })();
 
     cy.on('tap', 'node', function(evt) {
