@@ -5,6 +5,8 @@ A powerful library to visualize dependencies between GitHub Issues, making it ea
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue)](https://www.typescriptlang.org/)
 
+![Screenshot](./examples/screenshot.png)
+
 ## Features
 
 - 🔍 **Native GitHub Integration**: Uses GitHub REST API for sub-issues and dependencies
