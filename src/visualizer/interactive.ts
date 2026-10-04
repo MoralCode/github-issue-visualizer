@@ -29,6 +29,7 @@ export class InteractiveGenerator {
           label: `#${nodeNumber}: ${Formatter.formatTitle(node.title, 50)}`,
           title: node.title,
           url: node.url,
+          state: node.state,
           assignees: node.assignees.map((a) => a.login).join(', '),
           labels: node.labels.map((l) => l.name).join(', '),
         },
@@ -74,6 +75,13 @@ export class InteractiveGenerator {
           shape: 'roundrectangle',
           'border-width': 2,
           'border-color': '#333',
+        },
+      },
+      {
+        selector: 'node[state = "closed"]',
+        style: {
+          'background-color': '#2da44e',
+          'border-color': '#1a7f37',
         },
       },
       {
@@ -277,7 +285,11 @@ export class InteractiveGenerator {
     <div class="legend">
       <div class="legend-item">
         <div class="legend-color" style="background: #74c0fc"></div>
-        <span>Issue Node</span>
+        <span>Open</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #2da44e; border-color: #1a7f37"></div>
+        <span>Closed</span>
       </div>
     </div>
   </div>
