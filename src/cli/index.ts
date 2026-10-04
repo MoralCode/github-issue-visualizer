@@ -9,6 +9,22 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { IssueDependencyVisualizer } from '../index';
+import { DependencyGraph } from '../api/types';
+
+// Serialize DependencyGraph to JSON (Map → array of pairs)
+function serializeGraph(graph: DependencyGraph): string {
+  return JSON.stringify(
+    { ...graph, nodes: Array.from(graph.nodes.entries()) },
+    null,
+    2
+  );
+}
+
+// Deserialize DependencyGraph from JSON (array of pairs → Map)
+function deserializeGraph(json: string): DependencyGraph {
+  const raw = JSON.parse(json);
+  return { ...raw, nodes: new Map<number, any>(raw.nodes) };
+}
 
 // Load environment variables
 dotenv.config();
@@ -95,10 +111,68 @@ program
         const metricsPath = outputPath.replace(/\.[^.]+$/, '-metrics.md');
         fs.writeFileSync(metricsPath, metrics);
         console.log(`✓ Metrics saved to ${metricsPath}`);
+
+        const graphCachePath = outputPath.replace(/\.[^.]+$/, '-graph.json');
+        fs.writeFileSync(graphCachePath, serializeGraph(graph));
+        console.log(`✓ Graph data cached to ${graphCachePath} (use 'render' command to re-render without re-fetching)`);
       } else {
         console.log('\n' + metrics);
         console.log('\n' + visualization);
       }
+
+      console.log('\n✓ Done!');
+    } catch (error: any) {
+      console.error('Error:', error.message);
+      if (error.stack) {
+        console.error(error.stack);
+      }
+      process.exit(1);
+    }
+  });
+
+program
+  .command('render <graph-json>')
+  .description('Re-render a visualization from a cached graph JSON file (no API calls)')
+  .option('-f, --format <format>', 'Output format (mermaid or interactive)', 'interactive')
+  .option('-o, --output <path>', 'Output file path')
+  .action((graphJsonPath: string, options: any) => {
+    try {
+      const resolvedPath = path.resolve(graphJsonPath);
+      if (!fs.existsSync(resolvedPath)) {
+        console.error(`Error: File not found: ${resolvedPath}`);
+        process.exit(1);
+      }
+
+      const format = options.format.toLowerCase();
+      if (format !== 'mermaid' && format !== 'interactive') {
+        console.error('Error: Format must be either "mermaid" or "interactive"');
+        process.exit(1);
+      }
+
+      console.log(`Loading cached graph from ${resolvedPath}...`);
+      const graph = deserializeGraph(fs.readFileSync(resolvedPath, 'utf-8'));
+      console.log(`Loaded ${graph.nodes.size} issues, ${graph.edges.length} dependencies`);
+
+      // Re-use a dummy token since no API calls are made
+      const visualizer = new IssueDependencyVisualizer('none');
+      const visualization = visualizer.generateVisualization(graph, format);
+      const metrics = visualizer.generateMetricsSummary(graph);
+
+      const outputPath = options.output
+        ? path.resolve(options.output)
+        : resolvedPath.replace(/-graph\.json$/, `.${format === 'mermaid' ? 'md' : 'html'}`);
+
+      const outputDir = path.dirname(outputPath);
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+
+      fs.writeFileSync(outputPath, visualization);
+      console.log(`✓ Visualization saved to ${outputPath}`);
+
+      const metricsPath = outputPath.replace(/\.[^.]+$/, '-metrics.md');
+      fs.writeFileSync(metricsPath, metrics);
+      console.log(`✓ Metrics saved to ${metricsPath}`);
 
       console.log('\n✓ Done!');
     } catch (error: any) {
